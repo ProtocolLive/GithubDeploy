@@ -18,10 +18,8 @@ class GithubDeploy{
     endif;
   }
 
-  private function MkDir(string $Dir, string $Perm = '0755', bool $Recursive = true):void{
-    set_error_handler([$this, 'Error']);
+  private function MkDir(string $Dir, int $Perm = 0755, bool $Recursive = true):void{
     mkdir($Dir, $Perm, $Recursive);
-    restore_error_handler();
   }
 
   private function FileGet(string $File){
@@ -79,9 +77,9 @@ class GithubDeploy{
         $temp = json_decode($temp, true);
         $temp = base64_decode($temp['content']);
         file_put_contents($Folder . '/' . $item['name'], $temp);
-      else:
+      elseif($item['type'] === 'dir'):
         $this->MkDir($Folder . '/' . $item['name']);
-        $this->DeployDir($Remote . '/' . $item['name'], $Folder . '/' . $item['name']);
+        $this->DeployDir($item['url'], $Folder . '/' . $item['name']);
       endif;
     endforeach;
   }
@@ -121,6 +119,7 @@ class GithubDeploy{
   }
 
   public function Deploy(string $User, string $Repository, string $Folder, string $Trunk = 'master'):void{
+    set_error_handler([$this, 'Error']);
     $this->JsonRead();
     $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/commits';
     $Remote = $this->FileGet($temp);
@@ -139,6 +138,7 @@ class GithubDeploy{
       'Repository deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
     );
     $this->JsonSave();
+    restore_error_handler();
   }
 
   public function Errors():array{
