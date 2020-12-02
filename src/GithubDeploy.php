@@ -1,12 +1,28 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2020.12.02.00
+// Version 2020.12.02.01
 // Optimized for PHP 7.4
 
 class GithubDeploy{
   private string $Token;
   private array $Json = [];
+  private array $Errors = [];
+
+  private function Error(int $errno, string $errstr, string $errfile, int $errline, array $errcontext):void{
+    $this->Errors[] = [$errno, $errstr, $errfile, $errline, $errcontext];
+    if(ini_get('display_errors')):
+      echo '<pre>';
+      debug_print_backtrace();
+      echo '</pre>';
+    endif;
+  }
+
+  private function MkDir(string $Dir, string $Perm = '0755', bool $Recursive = true):void{
+    set_error_handler([$this, 'Error']);
+    mkdir($Dir, $Perm, $Recursive);
+    restore_error_handler();
+  }
 
   private function FileGet(string $File){
     $header = [
@@ -18,7 +34,27 @@ class GithubDeploy{
     if($this->Token !== ''):
       $header['http']['header'] .= 'Authorization: token ' . $this->Token;
     endif;
-    return file_get_contents($File, false, stream_context_create($header));
+    set_error_handler([$this, 'Error']);
+    $return = file_get_contents($File, false, stream_context_create($header));
+    restore_error_handler();
+    return $return;
+  }
+
+  private function Comment(string $Url, string $Data){
+    if($this->Token === ''):
+      return false;
+    endif;
+    $curl = curl_init();
+    curl_setopt($curl, CURLOPT_URL, $Url);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($curl, CURLOPT_POST, true);
+    curl_setopt($curl, CURLOPT_HTTPHEADER, [
+      'User-Agent: Protocol GithubDeploy',
+      'Authorization: token ' . $this->Token,
+      'Accept: application/vnd.github.v3+json'
+    ]);
+    curl_setopt($curl, CURLOPT_POSTFIELDS, '{"body":"Protocol GithubDeploy: ' . $Data . '"}');
+    curl_exec($curl);
   }
 
   private function JsonSave():void{
@@ -33,7 +69,7 @@ class GithubDeploy{
     endif;
   }
 
-  private function DeployDir(string $Remote, string $Local):void{
+  private function DeployDir(string $Remote, string $Folder):void{
     $remote = $this->FileGet($Remote);
     $remote = json_decode($remote, true);
     foreach($remote as $item):
@@ -44,18 +80,15 @@ class GithubDeploy{
         $temp = base64_decode($temp['content']);
         file_put_contents($Folder . '/' . $item['name'], $temp);
       else:
-        @mkdir($Folder . '/' . $item['name'], 0755, true);
-        $this->DeployDir($Remote . '/' . $item['name'], $Local . '/' . $item['name']);
+        $this->MkDir($Folder . '/' . $item['name']);
+        $this->DeployDir($Remote . '/' . $item['name'], $Folder . '/' . $item['name']);
       endif;
     endforeach;
   }
 
   private function DeployAll(string $User, string $Repository, string $Folder):void{
     $this->Json['LastRun'] = time();
-    $this->DeployDir(
-      'https://api.github.com/repos/' . $User . '/' . $Repository . '/contents',
-      $Folder
-    );
+    $this->DeployDir('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents', $Folder);
   }
 
   private function DeployCommit(string $User, string $Repository, string $Folder, string $Commit):void{
@@ -70,7 +103,7 @@ class GithubDeploy{
         $temp = base64_decode($temp);
         $name = strrpos($item['filename'], '/');
         $name = substr($item['filename'], 0, $name);
-        @mkdir($Folder . '/' . $name, 0755, true);
+        $this->MkDir($Folder . '/' . $name);
         file_put_contents($Folder . '/' . $item['filename'], $temp);
       elseif($item['status'] === 'removed'):
         @unlink($Folder . '/' . $item['filename']);
@@ -81,17 +114,16 @@ class GithubDeploy{
   }
 
   public function __construct(string $Token = ''){
+    if(extension_loaded('openssl') === false):
+      return false;
+    endif;
     $this->Token = $Token;
   }
 
-  public function Deploy(
-    string $User,
-    string $Repository,
-    string $Folder,
-    string $Trunk = 'master'
-  ):void{
+  public function Deploy(string $User, string $Repository, string $Folder, string $Trunk = 'master'):void{
     $this->JsonRead();
-    $Remote = $this->FileGet('https://api.github.com/repos/' . $User . '/' . $Repository . '/commits');
+    $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/commits';
+    $Remote = $this->FileGet($temp);
     $Remote = json_decode($Remote, true);
     if(isset($this->Json['Deploys'][$Repository])):
       if($this->Json['Deploys'][$Repository]['sha'] !== $Remote[0]['sha']):
@@ -102,6 +134,14 @@ class GithubDeploy{
       $this->DeployAll($User, $Repository, $Folder);
       $this->Json['Deploys'][$Repository]['sha'] = $Remote[0]['sha'];
     endif;
+    $this->Comment(
+      $Remote[0]['comments_url'],
+      'Repository deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
+    );
     $this->JsonSave();
+  }
+
+  public function Errors():array{
+    return $this->Errors;
   }
 }
