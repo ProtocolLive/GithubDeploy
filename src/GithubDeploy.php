@@ -1,7 +1,7 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2020.12.01.00
+// Version 2020.12.02.00
 // Optimized for PHP 7.4
 
 class GithubDeploy{
@@ -36,7 +36,7 @@ class GithubDeploy{
   private function DeployDir(string $Remote, string $Local):void{
     $remote = $this->FileGet($Remote);
     $remote = json_decode($remote, true);
-    foreach($Remote as $item):
+    foreach($remote as $item):
       if($item['type'] === 'file'):
         $temp = $item['url'];
         $temp = $this->FileGet($temp);
