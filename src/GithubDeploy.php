@@ -1,7 +1,7 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2020.12.02.02
+// Version 2020.12.02.03
 // Optimized for PHP 7.4
 
 class GithubDeploy{
@@ -127,7 +127,7 @@ class GithubDeploy{
     if(isset($this->Json['Deploys'][$Repository])):
       if($this->Json['Deploys'][$Repository]['sha'] !== $Remote[0]['sha']):
         $this->DeployCommit($User, $Repository, $Folder, $Remote[0]['sha']);
-        $this->Json['Deploys'][$Repository]['sha'] !== $Remote[0]['sha'];
+        $this->Json['Deploys'][$Repository]['sha'] = $Remote[0]['sha'];
         $this->Comment(
           $Remote[0]['comments_url'],
           'Commit deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
