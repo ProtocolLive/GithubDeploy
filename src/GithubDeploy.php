@@ -1,7 +1,7 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2020.12.02.03
+// Version 2020.12.04.00
 // Optimized for PHP 7.4
 
 class GithubDeploy{
@@ -84,13 +84,13 @@ class GithubDeploy{
     endforeach;
   }
 
-  private function DeployAll(string $User, string $Repository, string $Folder):void{
+  private function DeployAll(string $Repository, string $Folder):void{
     $this->Json['LastRun'] = time();
-    $this->DeployDir('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents', $Folder);
+    $this->DeployDir($Repository, $Folder);
   }
 
-  private function DeployCommit(string $User, string $Repository, string $Folder, string $Commit):void{
-    $Remote = $this->FileGet('https://api.github.com/repos/' . $User . '/' . $Repository . '/commits/' . $Commit);
+  private function DeployCommit(string $Commit, string $Folder):void{
+    $Remote = $this->FileGet($Commit);
     $Remote = json_decode($Remote, true);
     $Remote = $Remote['files'];
     foreach($Remote as $item):
@@ -125,16 +125,28 @@ class GithubDeploy{
     $Remote = $this->FileGet($temp);
     $Remote = json_decode($Remote, true);
     if(isset($this->Json['Deploys'][$Repository])):
-      if($this->Json['Deploys'][$Repository]['sha'] !== $Remote[0]['sha']):
-        $this->DeployCommit($User, $Repository, $Folder, $Remote[0]['sha']);
+      $Commits = [];
+      foreach($Remote as $commit):
+        if($commit['sha'] !== $this->Json['Deploys'][$Repository]['sha']):
+          $Commits[] = [
+            'url' => $commit['url'],
+            'comment' => $commit['comments_url']
+          ];
+        else:
+          break;
+        endif;
+      endforeach;
+      $Commits = array_reverse($Commits);
+      foreach($Commits as $commit):
+        $this->DeployCommit($Remote[0]['url'], $Folder);
         $this->Json['Deploys'][$Repository]['sha'] = $Remote[0]['sha'];
         $this->Comment(
-          $Remote[0]['comments_url'],
+          $commit['comment'],
           'Commit deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
         );
-      endif;
+      endforeach;
     else:
-      $this->DeployAll($User, $Repository, $Folder);
+      $this->DeployAll('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents', $Folder);
       $this->Json['Deploys'][$Repository]['sha'] = $Remote[0]['sha'];
       $this->Comment(
         $Remote[0]['comments_url'],
