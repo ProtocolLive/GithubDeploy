@@ -1,7 +1,7 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2020.12.04.00
+// Version 2020.12.06.00
 // Optimized for PHP 7.4
 
 class GithubDeploy{
@@ -32,9 +32,7 @@ class GithubDeploy{
     if($this->Token !== ''):
       $header['http']['header'] .= 'Authorization: token ' . $this->Token;
     endif;
-    set_error_handler([$this, 'Error']);
     $return = file_get_contents($File, false, stream_context_create($header));
-    restore_error_handler();
     return $return;
   }
 
@@ -104,7 +102,7 @@ class GithubDeploy{
         $this->MkDir($Folder . '/' . $name);
         file_put_contents($Folder . '/' . $item['filename'], $temp);
       elseif($item['status'] === 'removed'):
-        @unlink($Folder . '/' . $item['filename']);
+        unlink($Folder . '/' . $item['filename']);
       elseif($item['status'] === 'renamed'):
         rename($Folder . '/' . $item['previous_filename'], $Folder . '/' . $item['filename']);
       endif;
