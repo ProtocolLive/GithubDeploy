@@ -1,13 +1,14 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2020.12.06.00
+// Version 2021.04.06.00
 // Optimized for PHP 7.4
 
 class GithubDeploy{
   private string $Token;
   private array $Json = [];
   private array $Errors = [];
+  private bool $Log = true;
 
   private function Error(int $errno, string $errstr, string $errfile, int $errline, array $errcontext):void{
     $this->Errors[] = [$errno, $errstr, $errfile, $errline, $errcontext];
@@ -16,10 +17,18 @@ class GithubDeploy{
       debug_print_backtrace();
       echo '</pre>';
     endif;
+    if($this->Log):
+      file_put_contents(
+        __DIR__ . '/logs/' . date('Y-m-d-H-i-s') . '.log',
+        json_encode($this->Errors, JSON_PRETTY_PRINT)
+      );
+    endif;
   }
 
   private function MkDir(string $Dir, int $Perm = 0755, bool $Recursive = true):void{
-    mkdir($Dir, $Perm, $Recursive);
+    if(is_dir($Dir) === false):
+      mkdir($Dir, $Perm, $Recursive);
+    endif;
   }
 
   private function FileGet(string $File){
@@ -87,7 +96,7 @@ class GithubDeploy{
     $this->DeployDir($Repository, $Folder);
   }
 
-  private function DeployCommit(string $Commit, string $Folder):void{
+  public function DeployCommit(string $Commit, string $Folder):void{
     $Remote = $this->FileGet($Commit);
     $Remote = json_decode($Remote, true);
     $Remote = $Remote['files'];
@@ -109,11 +118,12 @@ class GithubDeploy{
     endforeach;
   }
 
-  public function __construct(string $Token = ''){
+  public function __construct(string $Token = '', bool $Log = true){
     if(extension_loaded('openssl') === false):
       return false;
     endif;
     $this->Token = $Token;
+    $this->Log = $Log;
   }
 
   public function Deploy(string $User, string $Repository, string $Folder, string $Trunk = 'master'):void{
