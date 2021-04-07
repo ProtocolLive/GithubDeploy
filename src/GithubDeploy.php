@@ -1,7 +1,7 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2021.04.07.00
+// Version 2021.04.07.01
 // For PHP >= 7.4
 
 class GithubDeploy{
@@ -87,17 +87,13 @@ class GithubDeploy{
         $temp = $this->FileGet($temp);
         $temp = json_decode($temp, true);
         $temp = base64_decode($temp['content']);
+        $this->MkDir($Folder);
         file_put_contents($Folder . '/' . $item['name'], $temp);
       elseif($item['type'] === 'dir'):
         $this->MkDir($Folder . '/' . $item['name']);
         $this->DeployDir($item['url'], $Folder . '/' . $item['name']);
       endif;
     endforeach;
-  }
-
-  private function DeployAll(string $Repository, string $Folder):void{
-    $this->Json['LastRun'] = time();
-    $this->DeployDir($Repository, $Folder);
   }
 
   public function DeployCommit(string $Commit, string $Folder):void{
@@ -136,10 +132,11 @@ class GithubDeploy{
     $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/commits';
     $Remote = $this->FileGet($temp);
     $Remote = json_decode($Remote, true);
-    if(isset($this->Json['Deploys'][$Repository])):
+    if(isset($this->Json['Deploys'][$User][$Repository])):
+      $this->Json['Deploys'][$User][$Repository]['Checked'] = date('Y-m-d H:i:s');
       $Commits = [];
       foreach($Remote as $commit):
-        if($commit['sha'] !== $this->Json['Deploys'][$Repository]['sha']):
+        if($commit['sha'] !== $this->Json['Deploys'][$User][$Repository]['sha']):
           $Commits[] = [
             'url' => $commit['url'],
             'comment' => $commit['comments_url']
@@ -151,21 +148,25 @@ class GithubDeploy{
       $Commits = array_reverse($Commits);
       foreach($Commits as $commit):
         $this->DeployCommit($Remote[0]['url'], $Folder);
-        $this->Json['Deploys'][$Repository]['sha'] = $Remote[0]['sha'];
-        $this->Comment(
-          $commit['comment'],
-          'Commit deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
-        );
+        if($CommentInCommit):
+          $this->Comment(
+            $commit['comment'],
+            'Commit deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
+          );
+        endif;
+        $this->Json['Deploys'][$User][$Repository]['sha'] = $Remote[0]['sha'];
+        $this->Json['Deploys'][$User][$Repository]['LastRun'] = date('Y-m-d H:i:s');
       endforeach;
     else:
-      $this->DeployAll('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents', $Folder);
-      $this->Json['Deploys'][$Repository]['sha'] = $Remote[0]['sha'];
+      $this->DeployDir('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents', $Folder);
       if($CommentInCommit):
         $this->Comment(
           $Remote[0]['comments_url'],
           'Repository deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
         );
       endif;
+      $this->Json['Deploys'][$User][$Repository]['sha'] = $Remote[0]['sha'];
+      $this->Json['Deploys'][$User][$Repository]['LastRun'] = $this->Json['Deploys'][$User][$Repository]['Checked'] = date('Y-m-d H:i:s');
     endif;
     $this->JsonSave();
     restore_error_handler();
