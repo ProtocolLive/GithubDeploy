@@ -1,8 +1,8 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2021.04.06.00
-// Optimized for PHP 7.4
+// Version 2021.04.07.00
+// For PHP >= 7.4
 
 class GithubDeploy{
   private string $Token;
@@ -31,6 +31,9 @@ class GithubDeploy{
     endif;
   }
 
+  /**
+   * @return string|false
+   */
   private function FileGet(string $File){
     $header = [
       'http' => [
@@ -45,7 +48,7 @@ class GithubDeploy{
     return $return;
   }
 
-  private function Comment(string $Url, string $Data){
+  private function Comment(string $Url, string $Data):bool{
     if($this->Token === ''):
       return false;
     endif;
@@ -60,6 +63,7 @@ class GithubDeploy{
     ]);
     curl_setopt($curl, CURLOPT_POSTFIELDS, '{"body":"Protocol GithubDeploy: ' . $Data . '"}');
     curl_exec($curl);
+    return true;
   }
 
   private function JsonSave():void{
@@ -126,7 +130,7 @@ class GithubDeploy{
     $this->Log = $Log;
   }
 
-  public function Deploy(string $User, string $Repository, string $Folder, string $Trunk = 'master'):void{
+  public function Deploy(string $User, string $Repository, string $Folder, bool $CommentInCommit = false):void{
     set_error_handler([$this, 'Error']);
     $this->JsonRead();
     $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/commits';
@@ -156,10 +160,12 @@ class GithubDeploy{
     else:
       $this->DeployAll('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents', $Folder);
       $this->Json['Deploys'][$Repository]['sha'] = $Remote[0]['sha'];
-      $this->Comment(
-        $Remote[0]['comments_url'],
-        'Repository deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
-      );
+      if($CommentInCommit):
+        $this->Comment(
+          $Remote[0]['comments_url'],
+          'Repository deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
+        );
+      endif;
     endif;
     $this->JsonSave();
     restore_error_handler();
