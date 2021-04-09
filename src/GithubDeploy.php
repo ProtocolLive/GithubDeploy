@@ -1,7 +1,7 @@
 <?php
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2021.04.07.01
+// Version 2021.04.08.00
 // For PHP >= 7.4
 
 class GithubDeploy{
@@ -96,7 +96,7 @@ class GithubDeploy{
     endforeach;
   }
 
-  public function DeployCommit(string $Commit, string $Folder):void{
+  private function DeployCommit(string $Commit, string $Folder):void{
     $Remote = $this->FileGet($Commit);
     $Remote = json_decode($Remote, true);
     $Remote = $Remote['files'];
@@ -167,6 +167,23 @@ class GithubDeploy{
       endif;
       $this->Json['Deploys'][$User][$Repository]['sha'] = $Remote[0]['sha'];
       $this->Json['Deploys'][$User][$Repository]['LastRun'] = $this->Json['Deploys'][$User][$Repository]['Checked'] = date('Y-m-d H:i:s');
+    endif;
+    $this->JsonSave();
+    restore_error_handler();
+  }
+
+  public function DeployFile(string $User, string $Repository, string $File, string $Folder):void{
+    set_error_handler([$this, 'Error']);
+    $this->JsonRead();
+    $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/contents' . $File;
+    $Remote = $this->FileGet($temp);
+    $Remote = json_decode($Remote, true);
+    $this->Json['Deploys'][$User][$Repository][$File]['Checked'] = date('Y-m-d H:i:s');
+    $this->Json['Deploys'][$User][$Repository][$File]['sha'] ??= '';
+    if($this->Json['Deploys'][$User][$Repository][$File]['sha'] != $Remote['sha']):
+      file_put_contents($Folder . '/' . basename($File), base64_decode($Remote['content']));
+      $this->Json['Deploys'][$User][$Repository][$File]['LastRun'] = date('Y-m-d H:i:s');
+      $this->Json['Deploys'][$User][$Repository][$File]['sha'] = $Remote['sha'];
     endif;
     $this->JsonSave();
     restore_error_handler();
