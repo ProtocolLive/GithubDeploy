@@ -1,8 +1,7 @@
 <?php
+// 2021.04.13.00
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
-// Version 2021.04.08.00
-// For PHP >= 7.4
 
 class GithubDeploy{
   private string $Token;
@@ -11,18 +10,20 @@ class GithubDeploy{
   private bool $Log = true;
 
   private function Error(int $errno, string $errstr, string $errfile, int $errline, array $errcontext):void{
-    $this->Errors[] = [$errno, $errstr, $errfile, $errline, $errcontext];
+    $this->Errors[] = [$errno, $errstr, $errfile, $errline];
     if(ini_get('display_errors')):
       echo '<pre>';
       debug_print_backtrace();
       echo '</pre>';
     endif;
     if($this->Log):
+      $this->MkDir(__DIR__ . '/logs');
       file_put_contents(
         __DIR__ . '/logs/' . date('Y-m-d-H-i-s') . '.log',
         json_encode($this->Errors, JSON_PRETTY_PRINT)
       );
     endif;
+    die();
   }
 
   private function MkDir(string $Dir, int $Perm = 0755, bool $Recursive = true):void{
@@ -38,11 +39,11 @@ class GithubDeploy{
     $header = [
       'http' => [
         'method' => 'GET',
-        'header' => "User-Agent: Protocol GithubDeploy\r\n"
+        'header' => 'User-Agent: Protocol GithubDeploy'
       ]
     ];
     if($this->Token !== ''):
-      $header['http']['header'] .= 'Authorization: token ' . $this->Token;
+      $header['http']['header'] .= "\nAuthorization: token " . $this->Token;
     endif;
     $return = file_get_contents($File, false, stream_context_create($header));
     return $return;
@@ -70,12 +71,23 @@ class GithubDeploy{
     file_put_contents(__DIR__ . '/GithubDeploy.json', json_encode($this->Json, JSON_PRETTY_PRINT));
   }
 
-  private function JsonRead():void{
+  private function JsonLoad():void{
     $temp = __DIR__ . '/GithubDeploy.json';
     if(file_exists($temp)):
       $temp = file_get_contents($temp);
       $this->Json = json_decode($temp, true);
     endif;
+  }
+
+  private function JsonSet(string $User, string $Repository, string $Folder, string $Field, string $Value):void{
+    $this->Json[$User][$Repository][$Folder][$Field] = $Value;
+  }
+
+  /**
+   * @return string|false
+   */
+  private function JsonGet(string $User, string $Repository, string $Folder, string $Field){
+    return $this->Json[$User][$Repository][$Folder][$Field] ?? false;
   }
 
   private function DeployDir(string $Remote, string $Folder):void{
@@ -128,15 +140,15 @@ class GithubDeploy{
 
   public function Deploy(string $User, string $Repository, string $Folder, bool $CommentInCommit = false):void{
     set_error_handler([$this, 'Error']);
-    $this->JsonRead();
+    $this->JsonLoad();
     $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/commits';
     $Remote = $this->FileGet($temp);
     $Remote = json_decode($Remote, true);
-    if(isset($this->Json['Deploys'][$User][$Repository])):
-      $this->Json['Deploys'][$User][$Repository]['Checked'] = date('Y-m-d H:i:s');
+    if($this->JsonGet($User, $Repository, $Folder, 'sha1')):
+      $this->JsonSet($User, $Repository, $Folder, 'Checked', date('Y-m-d H:i:s'));
       $Commits = [];
       foreach($Remote as $commit):
-        if($commit['sha'] !== $this->Json['Deploys'][$User][$Repository]['sha']):
+        if($commit['sha'] !== $this->JsonGet($User, $Repository, $Folder, 'sha')):
           $Commits[] = [
             'url' => $commit['url'],
             'comment' => $commit['comments_url']
@@ -154,8 +166,8 @@ class GithubDeploy{
             'Commit deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
           );
         endif;
-        $this->Json['Deploys'][$User][$Repository]['sha'] = $Remote[0]['sha'];
-        $this->Json['Deploys'][$User][$Repository]['LastRun'] = date('Y-m-d H:i:s');
+        $this->JsonSet($User, $Repository, $Folder, 'sha',  $Remote[0]['sha']);
+        $this->JsonSet($User, $Repository, $Folder, 'LastRun', date('Y-m-d H:i:s'));
       endforeach;
     else:
       $this->DeployDir('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents', $Folder);
@@ -165,8 +177,9 @@ class GithubDeploy{
           'Repository deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
         );
       endif;
-      $this->Json['Deploys'][$User][$Repository]['sha'] = $Remote[0]['sha'];
-      $this->Json['Deploys'][$User][$Repository]['LastRun'] = $this->Json['Deploys'][$User][$Repository]['Checked'] = date('Y-m-d H:i:s');
+      $this->JsonSet($User, $Repository, $Folder, 'sha', $Remote[0]['sha']);
+      $this->JsonSet($User, $Repository, $Folder, 'LastRun', date('Y-m-d H:i:s'));
+      $this->JsonSet($User, $Repository, $Folder, 'Checked', date('Y-m-d H:i:s'));
     endif;
     $this->JsonSave();
     restore_error_handler();
@@ -174,16 +187,15 @@ class GithubDeploy{
 
   public function DeployFile(string $User, string $Repository, string $File, string $Folder):void{
     set_error_handler([$this, 'Error']);
-    $this->JsonRead();
+    $this->JsonLoad();
     $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/contents' . $File;
     $Remote = $this->FileGet($temp);
     $Remote = json_decode($Remote, true);
-    $this->Json['Deploys'][$User][$Repository][$File]['Checked'] = date('Y-m-d H:i:s');
-    $this->Json['Deploys'][$User][$Repository][$File]['sha'] ??= '';
-    if($this->Json['Deploys'][$User][$Repository][$File]['sha'] != $Remote['sha']):
+    $this->JsonSet($User, $Repository . '/' . $File, $Folder, 'Checked', date('Y-m-d H:i:s'));
+    if(($this->JsonGet($User, $Repository . '/' . $File, $Folder, 'sha') ?? false) !== $Remote['sha']):
       file_put_contents($Folder . '/' . basename($File), base64_decode($Remote['content']));
-      $this->Json['Deploys'][$User][$Repository][$File]['LastRun'] = date('Y-m-d H:i:s');
-      $this->Json['Deploys'][$User][$Repository][$File]['sha'] = $Remote['sha'];
+      $this->JsonSet($User, $Repository . '/' . $File, $Folder, 'LastRun', date('Y-m-d H:i:s'));
+      $this->JsonSet($User, $Repository . '/' . $File, $Folder, 'sha', $Remote['sha']);
     endif;
     $this->JsonSave();
     restore_error_handler();
