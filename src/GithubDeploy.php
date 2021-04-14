@@ -1,5 +1,5 @@
 <?php
-// 2021.04.13.00
+// 2021.04.13.01
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
@@ -138,13 +138,14 @@ class GithubDeploy{
     $this->Log = $Log;
   }
 
-  public function Deploy(string $User, string $Repository, string $Folder, bool $CommentInCommit = false):void{
+  public function Deploy(string $User, string $Repository, string $Folder, bool $CommentInCommit = false):bool{
     set_error_handler([$this, 'Error']);
+    $return = false;
     $this->JsonLoad();
     $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/commits';
     $Remote = $this->FileGet($temp);
     $Remote = json_decode($Remote, true);
-    if($this->JsonGet($User, $Repository, $Folder, 'sha1')):
+    if($this->JsonGet($User, $Repository, $Folder, 'sha')):
       $this->JsonSet($User, $Repository, $Folder, 'Checked', date('Y-m-d H:i:s'));
       $Commits = [];
       foreach($Remote as $commit):
@@ -160,33 +161,37 @@ class GithubDeploy{
       $Commits = array_reverse($Commits);
       foreach($Commits as $commit):
         $this->DeployCommit($Remote[0]['url'], $Folder);
+        $this->JsonSet($User, $Repository, $Folder, 'sha', $Remote[0]['sha']);
+        $this->JsonSet($User, $Repository, $Folder, 'LastRun', date('Y-m-d H:i:s'));
         if($CommentInCommit):
           $this->Comment(
             $commit['comment'],
             'Commit deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
           );
         endif;
-        $this->JsonSet($User, $Repository, $Folder, 'sha',  $Remote[0]['sha']);
-        $this->JsonSet($User, $Repository, $Folder, 'LastRun', date('Y-m-d H:i:s'));
+        $return = true;
       endforeach;
     else:
       $this->DeployDir('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents', $Folder);
+      $this->JsonSet($User, $Repository, $Folder, 'sha', $Remote[0]['sha']);
+      $this->JsonSet($User, $Repository, $Folder, 'LastRun', date('Y-m-d H:i:s'));
+      $this->JsonSet($User, $Repository, $Folder, 'Checked', date('Y-m-d H:i:s'));
       if($CommentInCommit):
         $this->Comment(
           $Remote[0]['comments_url'],
           'Repository deployed at ' . date('Y-m-d H:i:s') . ' (' . ini_get('date.timezone') . ')'
         );
       endif;
-      $this->JsonSet($User, $Repository, $Folder, 'sha', $Remote[0]['sha']);
-      $this->JsonSet($User, $Repository, $Folder, 'LastRun', date('Y-m-d H:i:s'));
-      $this->JsonSet($User, $Repository, $Folder, 'Checked', date('Y-m-d H:i:s'));
+      $return = true;
     endif;
     $this->JsonSave();
     restore_error_handler();
+    return $return;
   }
 
-  public function DeployFile(string $User, string $Repository, string $File, string $Folder):void{
+  public function DeployFile(string $User, string $Repository, string $File, string $Folder):bool{
     set_error_handler([$this, 'Error']);
+    $return = false;
     $this->JsonLoad();
     $temp = 'https://api.github.com/repos/' . $User . '/' . $Repository . '/contents' . $File;
     $Remote = $this->FileGet($temp);
@@ -196,9 +201,11 @@ class GithubDeploy{
       file_put_contents($Folder . '/' . basename($File), base64_decode($Remote['content']));
       $this->JsonSet($User, $Repository . '/' . $File, $Folder, 'LastRun', date('Y-m-d H:i:s'));
       $this->JsonSet($User, $Repository . '/' . $File, $Folder, 'sha', $Remote['sha']);
+      $return = true;
     endif;
     $this->JsonSave();
     restore_error_handler();
+    return $return;
   }
 
   public function Errors():array{
