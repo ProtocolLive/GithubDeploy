@@ -1,5 +1,5 @@
 <?php
-// 2021.04.17.01
+// 2021.04.17.02
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
@@ -23,10 +23,7 @@ class GithubDeploy{
     endif;
   }
 
-  /**
-   * @return string|false
-   */
-  private function FileGet(string $File){
+  private function FileGet(string $File):?string{
     $header = [
       'http' => [
         'method' => 'GET',
@@ -37,7 +34,7 @@ class GithubDeploy{
       $header['http']['header'] .= "\nAuthorization: token " . $this->Token;
     endif;
     $return = file_get_contents($File, false, stream_context_create($header));
-    return $return;
+    return $return === false ? null : $return;
   }
 
   private function JsonSave():void{
