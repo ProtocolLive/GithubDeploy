@@ -1,5 +1,5 @@
 <?php
-// 2021.04.17.04
+// 2021.04.17.05
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
@@ -62,7 +62,7 @@ class GithubDeploy{
     $Remote = json_decode($Remote, true);
     foreach($Remote as $file):
       if($file['type'] === 'dir'):
-        $this->DirDeploy($file['url'], $Folder . '/' . $file['name']);
+        $this->DirDeploy($file['url'], $Folder . '/' . $file['name'], $FilesIgnored);
       else:
         $File = $Folder . '/' . $file['name'];
         $this->JsonSet($File, 'Seen', $this->Time);
