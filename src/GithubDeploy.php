@@ -1,5 +1,5 @@
 <?php
-// 2021.04.17.06
+// 2021.04.17.07
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
@@ -75,6 +75,12 @@ class GithubDeploy{
               print '<br>';
             endif;
           else:
+            print 'Deploying ' . $File;
+            if($this->Dump === self::Dump_Pre):
+              print "\n";
+            elseif($this->Dump === self::Dump_Html):
+              print '<br>';
+            endif;
             $temp = $this->FileGet($file['url']);
             $temp = json_decode($temp, true);
             $temp = base64_decode($temp['content']);
@@ -82,11 +88,6 @@ class GithubDeploy{
             file_put_contents($File, $temp);
             $this->JsonSet($File, 'Sha', $file['sha']);
             $this->JsonSet($File, 'Deployed', $this->Time);
-            if($this->Dump === self::Dump_Pre):
-              print "Deployed $File\n";
-            elseif($this->Dump === self::Dump_Html):
-              print "Deployed $File<br>";
-            endif;
           endif;
         endif;
       endif;
