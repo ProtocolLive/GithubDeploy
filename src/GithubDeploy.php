@@ -1,5 +1,5 @@
 <?php
-// 2021.04.17.05
+// 2021.04.17.06
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
@@ -66,18 +66,27 @@ class GithubDeploy{
       else:
         $File = $Folder . '/' . $file['name'];
         $this->JsonSet($File, 'Seen', $this->Time);
-        if($this->JsonGet($File, 'Sha') !== $file['sha'] and array_search($file['path'], $FilesIgnored) === false):
-          $temp = $this->FileGet($file['url']);
-          $temp = json_decode($temp, true);
-          $temp = base64_decode($temp['content']);
-          $this->MkDir($Folder);
-          file_put_contents($File, $temp);
-          $this->JsonSet($File, 'Sha', $file['sha']);
-          $this->JsonSet($File, 'Deployed', $this->Time);
-          if($this->Dump === self::Dump_Pre):
-            print "Deployed $File\n";
-          elseif($this->Dump === self::Dump_Html):
-            print "Deployed $File<br>";
+        if($this->JsonGet($File, 'Sha') !== $file['sha']):
+          if(array_search($file['path'], $FilesIgnored) !== false):
+            print 'Ignoring ' . $File;
+            if($this->Dump === self::Dump_Pre):
+              print "\n";
+            elseif($this->Dump === self::Dump_Html):
+              print '<br>';
+            endif;
+          else:
+            $temp = $this->FileGet($file['url']);
+            $temp = json_decode($temp, true);
+            $temp = base64_decode($temp['content']);
+            $this->MkDir($Folder);
+            file_put_contents($File, $temp);
+            $this->JsonSet($File, 'Sha', $file['sha']);
+            $this->JsonSet($File, 'Deployed', $this->Time);
+            if($this->Dump === self::Dump_Pre):
+              print "Deployed $File\n";
+            elseif($this->Dump === self::Dump_Html):
+              print "Deployed $File<br>";
+            endif;
           endif;
         endif;
       endif;
