@@ -1,5 +1,5 @@
 <?php
-// 2021.04.17.03
+// 2021.04.17.04
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
@@ -105,7 +105,7 @@ class GithubDeploy{
 
   public function __construct(?string $Token = null, int $Dump = self::Dump_Pre){
     if(extension_loaded('openssl') === false):
-      return false;
+      throw new Exception('Extension OpenSSL not found');
     endif;
     $this->Token = $Token;
     $this->Dump = $Dump;
