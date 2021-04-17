@@ -1,10 +1,10 @@
 <?php
-// 2021.04.14.00
+// 2021.04.17.00
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
 class GithubDeploy{
-  private string $Token;
+  private ?string $Token;
   private array $Json = [];
   private int $Dump;
 
@@ -33,7 +33,7 @@ class GithubDeploy{
         'header' => 'User-Agent: Protocol GithubDeploy'
       ]
     ];
-    if($this->Token !== ''):
+    if($this->Token !== null):
       $header['http']['header'] .= "\nAuthorization: token " . $this->Token;
     endif;
     $return = file_get_contents($File, false, stream_context_create($header));
@@ -109,7 +109,7 @@ class GithubDeploy{
     endforeach;
   }
 
-  public function __construct(string $Token = '', int $Dump = self::Dump_Pre){
+  public function __construct(?string $Token = null, int $Dump = self::Dump_Pre){
     if(extension_loaded('openssl') === false):
       return false;
     endif;
