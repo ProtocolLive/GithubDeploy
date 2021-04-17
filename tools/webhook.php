@@ -22,7 +22,8 @@ function Error(int $errno, string $errstr, ?string $errfile, ?int $errline){
   die();
 }
 
-print "Checking the repository...\n";
+print 'Start deploy at ' . date('Y-m-d H:i:s') . ' (' . date_default_timezone_get() . ")\n";
+print "Checking the repository...\n\n";
 $GHD = new GithubDeploy(GithubDeployToken);
 
 $GHD->Deploy('ProtocolLive', 'Ajax', SystemDir . '/GithubDeploy/deploys/Ajax', '');
