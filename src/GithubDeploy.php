@@ -1,5 +1,5 @@
 <?php
-// 2021.04.17.00
+// 2021.04.17.01
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
@@ -63,7 +63,7 @@ class GithubDeploy{
     return $this->Json[$this->User][$this->Repository][$this->Folder][$File][$Field] ?? false;
   }
 
-  private function DirDeploy(string $Remote, string $Folder):void{
+  private function DirDeploy(string $Remote, string $Folder, array &$FilesIgnored = []):void{
     $Remote = $this->FileGet($Remote);
     $Remote = json_decode($Remote, true);
     foreach($Remote as $file):
@@ -72,7 +72,7 @@ class GithubDeploy{
       else:
         $File = $Folder . '/' . $file['name'];
         $this->JsonSet($File, 'Seen', $this->Time);
-        if($this->JsonGet($File, 'Sha') !== $file['sha']):
+        if($this->JsonGet($File, 'Sha') !== $file['sha'] and array_search($file['path'], $FilesIgnored) === false):
           $temp = $this->FileGet($file['url']);
           $temp = json_decode($temp, true);
           $temp = base64_decode($temp['content']);
@@ -117,13 +117,13 @@ class GithubDeploy{
     $this->Dump = $Dump;
   }
 
-  public function Deploy(string $User, string $Repository, string $LocalFolder, string $RemoteFolder = '/src'):bool{
+  public function Deploy(string $User, string $Repository, string $LocalFolder, string $RemoteFolder = '/src', array $FilesIgnored = []):bool{
     $this->User = $User;
     $this->Repository = $Repository;
     $this->Folder = $LocalFolder;
     $this->Time = time();
     $this->JsonLoad();
-    $this->DirDeploy('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents' . $RemoteFolder, $LocalFolder);
+    $this->DirDeploy('https://api.github.com/repos/' . $User . '/' . $Repository . '/contents' . $RemoteFolder, $LocalFolder, $FilesIgnored);
     $this->DirNormalize();
     $this->JsonSave();
     return true;
