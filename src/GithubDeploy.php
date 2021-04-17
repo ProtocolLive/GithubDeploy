@@ -1,5 +1,5 @@
 <?php
-// 2021.04.17.02
+// 2021.04.17.03
 // Protocol Corporation Ltda.
 // https://github.com/ProtocolLive/GithubDeploy/
 
@@ -53,11 +53,8 @@ class GithubDeploy{
     $this->Json[$this->User][$this->Repository][$this->Folder][$File][$Field] = $Value;
   }
 
-  /**
-   * @return string|false
-   */
-  private function JsonGet(string $File, string $Field){
-    return $this->Json[$this->User][$this->Repository][$this->Folder][$File][$Field] ?? false;
+  private function JsonGet(string $File, string $Field):?string{
+    return $this->Json[$this->User][$this->Repository][$this->Folder][$File][$Field] ?? null;
   }
 
   private function DirDeploy(string $Remote, string $Folder, array &$FilesIgnored = []):void{
@@ -87,7 +84,7 @@ class GithubDeploy{
     endforeach;
   }
 
-  private function DirNormalize(){
+  private function DirNormalize():void{
     foreach($this->Json[$this->User][$this->Repository][$this->Folder] as $file => $data):
       if($data['Seen'] !== $this->Time):
         unlink($file);
